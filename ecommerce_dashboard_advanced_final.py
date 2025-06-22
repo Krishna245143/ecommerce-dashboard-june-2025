@@ -88,16 +88,27 @@ elif nav == "🤼 Competition Analysis":
         st.caption("Shows how prices vary & outliers")
 
     elif chart == "Line (Trend)":
+        st.subheader("📉 Weekly Price Trends")
+
+        if "Date" in sub.columns:
+            sub["Date"] = pd.to_datetime(sub["Date"], errors="coerce")
+            sub = sub.dropna(subset=["Date"])
+            sub["Week"] = sub["Date"].dt.isocalendar().week
+        else:
+            sub = sub.copy()
+            sub["Week"] = np.repeat(range(1, 5), len(sub) // 4 + 1)[:len(sub)]
+
         fig, ax = plt.subplots()
         for app in sub["App"].unique():
             df_app = sub[sub["App"] == app].groupby("Week")["DiscountedPrice"].mean()
-            ax.plot(df_app.index, df_app.values, label=app, color=colors[app])
-        ax.set_title(f"Weekly Avg Price Trend — {prod}")
-        ax.set_xlabel("Week")
-        ax.set_ylabel("Avg Price ₹")
-        ax.legend()
+            ax.plot(df_app.index, df_app.values, label=app, color=colors.get(app, None))
+
+        ax.set_title(f"Weekly Avg Price Trend — {prod}", fontsize=14)
+        ax.set_xlabel("Week Number", fontsize=12)
+        ax.set_ylabel("Avg Discounted Price ₹", fontsize=12)
+        ax.legend(title="Apps")
         st.pyplot(fig)
-        st.caption("Tracks weekly price competition between apps")
+        st.caption("📌 Lower prices = better deals. Tracks week-wise competition across apps.")
 
 # ================== 🔮 WHAT IF =====================
 elif nav == "🔮 What-If Predictions":
@@ -106,9 +117,8 @@ elif nav == "🔮 What-If Predictions":
     product = st.selectbox("Select Product", df[df["App"] == company]["Product"].unique())
     scenario = st.selectbox("Select Strategy", ["₹2 Drop", "₹2 Increase", "Free Delivery", "Combo Offer"])
 
-    # Simulate with Linear Regression (mock)
-    X = np.array([100, 98, 95, 97]).reshape(-1, 1)  # Prices
-    y = np.array([500, 540, 600, 580])             # Demand
+    X = np.array([100, 98, 95, 97]).reshape(-1, 1)
+    y = np.array([500, 540, 600, 580])
     model = demand_model()
     model.fit(X, y)
 
