@@ -64,9 +64,13 @@ if nav == "🏠 Home Overview":
 elif nav == "🤼 Competition Analysis":
     st.header("📊 Competitive Category Analysis")
     cat = st.selectbox("Select Category", df["Category"].unique())
-    prod = st.selectbox("Select Product", df[df["Category"] == cat]["Product"].unique())
+    prod = st.selectbox("Select Product", ["All"] + list(df[df["Category"] == cat]["Product"].unique()))
     chart = st.radio("Choose Chart Type", ["Bar (Avg Price)", "Box (Distribution)", "Line (Trend)"])
-    sub = df[(df["Category"] == cat) & (df["Product"] == prod)]
+
+    if prod == "All":
+        sub = df[df["Category"] == cat]
+    else:
+        sub = df[(df["Category"] == cat) & (df["Product"] == prod)]
 
     if chart == "Bar (Avg Price)":
         avg_price = sub.groupby("App")["DiscountedPrice"].mean()
@@ -88,37 +92,29 @@ elif nav == "🤼 Competition Analysis":
         st.caption("Shows how prices vary & outliers")
 
     elif chart == "Line (Trend)":
-        st.subheader("📉 Weekly Price Trends")
-
-        if "Date" in sub.columns:
-            sub["Date"] = pd.to_datetime(sub["Date"], errors="coerce")
-            sub = sub.dropna(subset=["Date"])
-            sub["Week"] = sub["Date"].dt.isocalendar().week
-        else:
-            sub = sub.copy()
-            sub["Week"] = np.repeat(range(1, 5), len(sub) // 4 + 1)[:len(sub)]
-
         fig, ax = plt.subplots()
         for app in sub["App"].unique():
-            df_app = sub[sub["App"] == app].groupby("Week")["DiscountedPrice"].mean()
-            ax.plot(df_app.index, df_app.values, label=app, color=colors.get(app, None))
-
-        ax.set_title(f"Weekly Avg Price Trend — {prod}", fontsize=14)
-        ax.set_xlabel("Week Number", fontsize=12)
-        ax.set_ylabel("Avg Discounted Price ₹", fontsize=12)
-        ax.legend(title="Apps")
+            if "Week" in sub.columns:
+                df_app = sub[sub["App"] == app].groupby("Week")["DiscountedPrice"].mean()
+                ax.plot(df_app.index, df_app.values, label=app, color=colors[app])
+        ax.set_title(f"Weekly Avg Price Trend — {prod if prod != 'All' else cat}")
+        ax.set_xlabel("Week")
+        ax.set_ylabel("Avg Price ₹")
+        ax.legend()
         st.pyplot(fig)
-        st.caption("📌 Lower prices = better deals. Tracks week-wise competition across apps.")
+        st.caption("Tracks weekly price competition between apps")
 
 # ================== 🔮 WHAT IF =====================
 elif nav == "🔮 What-If Predictions":
     st.header("🔮 Strategy Impact Simulator")
     company = st.radio("Choose Company", df["App"].unique(), horizontal=True)
-    product = st.selectbox("Select Product", df[df["App"] == company]["Product"].unique())
+    category = st.selectbox("Select Category", df[df["App"] == company]["Category"].unique())
+    product = st.selectbox("Select Product", ["All"] + list(df[(df["App"] == company) & (df["Category"] == category)]["Product"].unique()))
     scenario = st.selectbox("Select Strategy", ["₹2 Drop", "₹2 Increase", "Free Delivery", "Combo Offer"])
 
-    X = np.array([100, 98, 95, 97]).reshape(-1, 1)
-    y = np.array([500, 540, 600, 580])
+    # Simulate with Linear Regression (mock)
+    X = np.array([100, 98, 95, 97]).reshape(-1, 1)  # Prices
+    y = np.array([500, 540, 600, 580])             # Demand
     model = demand_model()
     model.fit(X, y)
 
@@ -149,11 +145,14 @@ elif nav == "🔮 What-If Predictions":
 elif nav == "📦 Product Summary":
     st.header("📦 Product Breakdown by App & City")
     cat = st.selectbox("Choose Category", df["Category"].unique())
-    prod = st.selectbox("Choose Product", df[df["Category"] == cat]["Product"].unique())
+    prod = st.selectbox("Choose Product", ["All"] + list(df[df["Category"] == cat]["Product"].unique()))
     for app in df["App"].unique():
-        sub = df[(df["App"] == app) & (df["Product"] == prod)]
+        if prod == "All":
+            sub = df[(df["App"] == app) & (df["Category"] == cat)]
+        else:
+            sub = df[(df["App"] == app) & (df["Product"] == prod)]
         if not sub.empty:
-            st.subheader(f"{app} — {prod}")
+            st.subheader(f"{app} — {prod if prod != 'All' else cat}")
             summary = sub.groupby("City")["Price"].agg(["mean", "count"])
             st.dataframe(summary)
             st.caption("Average price and order count in each city")
